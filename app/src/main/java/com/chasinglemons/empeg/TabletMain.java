@@ -7,12 +7,6 @@ import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.ResponseHandler;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicResponseHandler;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -21,8 +15,10 @@ import org.miscwidgets.interpolator.ExpoInterpolator;
 import org.miscwidgets.interpolator.EasingType.Type;
 
 import android.app.ActionBar;
+import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
@@ -41,11 +37,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Display;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -57,16 +53,15 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.NumberPicker;
 import android.widget.ProgressBar;
 
-import com.afollestad.materialdialogs.DialogAction;
-import com.afollestad.materialdialogs.MaterialDialog;
-import com.afollestad.materialdialogs.Theme;
 import com.chasinglemons.empeg.KeyboardPanel.OnPanelListener;
 
-import biz.kasual.materialnumberpicker.MaterialNumberPicker;
-
 public class TabletMain extends ListActivity implements SharedPreferences.OnSharedPreferenceChangeListener,OnLongClickListener,OnPanelListener {
+
+    private boolean screenActive;
+    private DownloadImageTask imageTask;
 
 	protected static final int ADD_IP_REQUEST_CODE = 100;
 	private String playerIP;
@@ -125,7 +120,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 	private KeyboardPanel kpanel;
 	private EditText messageInput;
 	private View positiveAction;
-	private MaterialNumberPicker picker;
+	private NumberPicker picker;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -155,17 +150,17 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 			@Override
 			public void onItemClick(int pos) {
 				if (pos == 0) { // enqueue selected
-					new sendCommand().execute("http://"+playerIP+enqueueURL);
+					new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+enqueueURL);
 
 				} else if (pos == 1) { // append selected
-					new sendCommand().execute("http://"+playerIP+appendURL);
+					new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+appendURL);
 
 				} else if (pos == 2) { // insert selected
-					new sendCommand().execute("http://"+playerIP+insertURL);
+					new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+insertURL);
 
 				} else if (pos == 3) { // stream selected
-					Intent intent = new Intent();  
-					intent.setAction(android.content.Intent.ACTION_VIEW);  
+					Intent intent = new Intent();
+					intent.setAction(android.content.Intent.ACTION_VIEW);
 					intent.setDataAndType(Uri.parse("http://"+playerIP+streamURL), "audio/*");
 					startActivity(intent);
 				}
@@ -183,7 +178,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 		pHistoryLayout = (LinearLayout) findViewById(R.id.List_Back);
 
 		config = PreferenceManager.getDefaultSharedPreferences(this);
-		
+
 		mKeyboard = new Keyboard(this, R.xml.keyboard);
 		mKeyboardView = (CustomKeyboardView) findViewById(R.id.keyboard_view);
 		mKeyboardView.setKeyboard(mKeyboard);
@@ -212,10 +207,9 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 			startActivityForResult(new Intent(this,AddEmpeg.class), ADD_IP_REQUEST_CODE);
 		} else {
 			playerIP = config.getString("activeEmpegIP", "none");
-			new DownloadDataTask().execute("http://"+playerIP+"/?FID=101&EXT=.htm","add");
+			new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+"/?FID=101&EXT=.htm","add");
 			if (config.getBoolean("doNotifications", true)) {
-				Intent service = new Intent(this, NotificationService.class);
-				this.startService(service); 
+				NotificationService.start(TabletMain.this);
 			}
 		}
 
@@ -329,8 +323,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 					Intent service = new Intent(getApplicationContext(), NotificationService.class);
 					stopService(service);
 				} else {
-					Intent service = new Intent(getApplicationContext(), NotificationService.class);
-					startService(service);
+					NotificationService.start(TabletMain.this);
 				}
 			}
 		};
@@ -348,7 +341,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 			public void onClick(View v) {
 				pScroller.setVisibility(View.VISIBLE);
 				pNotFound.setVisibility(View.GONE);
-				new DownloadDataTask().execute("http://"+playerIP+"/?FID=101&EXT=.htm","add");
+				new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+"/?FID=101&EXT=.htm","add");
 				if (doVibrate) {
 					vibradora.vibrate(50);
 				}
@@ -360,19 +353,19 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 			@Override
 			public void onClick(View v) {
 				gData.playlistHistory.remove(gData.playlistHistory.size()-1);
-				new DownloadDataTask().execute("http://"+playerIP+gData.playlistHistory.get(gData.playlistHistory.size()-1)+"&EXT=.htm","noAdd");
+				new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+gData.playlistHistory.get(gData.playlistHistory.size()-1)+"&EXT=.htm","noAdd");
 				if (doVibrate) {
 					vibradora.vibrate(50);
 				}
 			}
 		});
-		
+
 		pHomeButton = (Button) findViewById(R.id.button_pl_home);
 		pHomeButton.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				gData.playlistHistory.clear();
-				new DownloadDataTask().execute("http://"+playerIP+"/?FID=101&EXT=.htm","add");
+				new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+"/?FID=101&EXT=.htm","add");
 				if (doVibrate) {
 					vibradora.vibrate(50);
 				}
@@ -384,6 +377,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 	@Override
 	public void onResume() {
 		super.onResume();
+        screenActive = true;
 		//Log.i("TABLETMAIN","onResume()");
 		playerIP = config.getString("activeEmpegIP", "none");
 		//Log.i("TABLETMAIN","saved IP: "+playerIP);
@@ -399,15 +393,18 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 	@Override
 	public void onPause() {
 		super.onPause();
+        screenActive = false;
+        if (imageTask != null) imageTask.cancel(true);
 		//Log.i("TABLETMAIN","onPause()");
 		if (screenHandler != null) {
 			screenHandler.removeCallbacks(sr);
 		}
 	}
-	
+
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
+        config.unregisterOnSharedPreferenceChangeListener(prefListener);
 		Intent service = new Intent(this, NotificationService.class);
 		stopService(service);
 	}
@@ -418,6 +415,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 		super.onActivityResult(requestCode, resultCode, data);
 		switch (requestCode) {
 		case ADD_IP_REQUEST_CODE:
+                playerIP = config.getString("activeEmpegIP", "none");
 			if (!config.getString("activeEmpegIP", "none").equals("none")) {
 				if (screenHandler != null) {
 					screenHandler.removeCallbacks(sr);
@@ -427,18 +425,17 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 				imageURL = "http://"+playerIP+"/proc/empeg_screen.png";
 
 				// send a hello msg to the empeg
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=NODATA&POPUP%201%20%20Empeg%20Remote%20configured");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=NODATA&POPUP%201%20%20Empeg%20Remote%20configured");
 
 				// load/reload the playlist
-				new DownloadDataTask().execute("http://"+playerIP+"/?FID=101&EXT=.htm","add");
+				new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+"/?FID=101&EXT=.htm","add");
 
 				refreshScreen();
-				
+
 				if (config.getBoolean("doNotifications", true)) {
-					Intent service = new Intent(this, NotificationService.class);
-					this.startService(service); 
+					NotificationService.start(TabletMain.this);
 				}
-				
+
 			} else {
 				finish();
 			}
@@ -446,7 +443,19 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 		}
 	}
 
-	@Override
+	    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == NotificationService.NOTIFICATION_PERMISSION_REQUEST
+                && grantResults.length > 0
+                && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+                && config.getBoolean("doNotifications", true)
+                && !"none".equals(config.getString("activeEmpegIP", "none"))) {
+            NotificationService.start(this);
+        }
+    }
+
+@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.main, menu);
@@ -464,27 +473,27 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 			return true;
 			case R.id.action_send_message:
 				// popup text entry
-				MaterialDialog dialog = new MaterialDialog.Builder(this)
-						.theme(Theme.LIGHT)
-						.title("Send Message")
-						.customView(R.layout.send_message_popup, true)
-						.positiveText("Send")
-						.negativeText("Cancel")
-						.onPositive(new MaterialDialog.SingleButtonCallback() {
+				AlertDialog.Builder builder = new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert);
+				View messageView = LayoutInflater.from(builder.getContext()).inflate(R.layout.send_message_popup, null);
+				AlertDialog dialog = builder.setTitle("Send Message")
+						.setView(messageView)
+						.setNegativeButton("Cancel", null)
+						.setPositiveButton("Send", new DialogInterface.OnClickListener() {
 							@Override
-							public void onClick(@NonNull MaterialDialog dialog, @NonNull DialogAction which) {
-								new sendCommand().execute("http://" + playerIP +
+							public void onClick(DialogInterface dialog, int which) {
+								new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP +
 										"/proc/empeg_notify?button=NODATA&POPUP%20" +
 										picker.getValue() + "%20" +
 										messageInput.getText().toString().replace(" ", "%20"));
 							}
 						})
-						.build();
+						.create();
 
-				picker = (MaterialNumberPicker) dialog.getCustomView().findViewById(R.id.durationPicker);
+				picker = (NumberPicker) messageView.findViewById(R.id.durationPicker);
+				picker.setMinValue(1);
+				picker.setMaxValue(1000);
 				picker.setValue(5);
-				positiveAction = dialog.getActionButton(DialogAction.POSITIVE);
-				messageInput = (EditText) dialog.getCustomView().findViewById(R.id.message_text);
+				messageInput = (EditText) messageView.findViewById(R.id.message_text);
 				messageInput.addTextChangedListener(new TextWatcher() {
 					@Override
 					public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -501,6 +510,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 				});
 
 				dialog.show();
+				positiveAction = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
 				positiveAction.setEnabled(false); // disabled by default
 
 				return true;
@@ -521,13 +531,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 		protected String doInBackground(String... url) {
 			String responseBody = "";
 			try {
-				HttpClient httpclient = new DefaultHttpClient();
-				//				//Log.i("EMPEG","FETCHING: "+url[0]);
-				HttpGet httpget = new HttpGet(url[0]);
-				ResponseHandler<String> responseHandler = new BasicResponseHandler();
-				responseBody = httpclient.execute(httpget, responseHandler);
-
-				httpclient.getConnectionManager().shutdown();
+				responseBody = EmpegHttp.getText(url[0]);
 			} catch (MalformedURLException e) {
 				//Log.i("TABLETMAIN","MalformedURLException - sendCommand");
 			} catch (IOException e) {
@@ -550,79 +554,79 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 
 		switch (v.getId()) {
 		case R.id.remote_a1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=One");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=One");
 			break;
 		case R.id.remote_a2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Two");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Two");
 			break;
 		case R.id.remote_a3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Three");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Three");
 			break;
 		case R.id.remote_a4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Source");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Source");
 			break;
 		case R.id.remote_b1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Four");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Four");
 			break;
 		case R.id.remote_b2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Five");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Five");
 			break;
 		case R.id.remote_b3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Six");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Six");
 			break;
 		case R.id.remote_b4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Tuner");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Tuner");
 			break;
 		case R.id.remote_c1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Seven");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Seven");
 			break;
 		case R.id.remote_c2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Eight");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Eight");
 			break;
 		case R.id.remote_c3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Nine");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Nine");
 			break;
 		case R.id.remote_c4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=SelectMode");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=SelectMode");
 			break;
 		case R.id.remote_d1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Cancel");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Cancel");
 			break;
 		case R.id.remote_d2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Zero");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Zero");
 			break;
 		case R.id.remote_d3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Search");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Search");
 			break;
 		case R.id.remote_d4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Sound");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Sound");
 			break;
 		case R.id.remote_e1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Prev");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Prev");
 			break;
 		case R.id.remote_e2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Next");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Next");
 			break;
 		case R.id.remote_e3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Menu");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Menu");
 			break;
 		case R.id.remote_e4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=KnobRight");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=KnobRight");
 			break;
 		case R.id.remote_f1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Info");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Info");
 			break;
 		case R.id.remote_f2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Visual");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Visual");
 			break;
 		case R.id.remote_f3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Play");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Play");
 			break;
 		case R.id.remote_f4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=KnobLeft");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=KnobLeft");
 			break;
 		case R.id.remote_g1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=HijackMenu");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=HijackMenu");
 			break;
 		}
 		if (doVibrate) {
@@ -634,76 +638,76 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 	public boolean onLongClick(View v) {
 		switch (v.getId()) {
 		case R.id.remote_a1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=One.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=One.L");
 			break;
 		case R.id.remote_a2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Two.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Two.L");
 			break;
 		case R.id.remote_a3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Three.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Three.L");
 			break;
 		case R.id.remote_a4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Source.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Source.L");
 			break;
 		case R.id.remote_b1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Four.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Four.L");
 			break;
 		case R.id.remote_b2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Five.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Five.L");
 			break;
 		case R.id.remote_b3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Six.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Six.L");
 			break;
 		case R.id.remote_b4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Tuner.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Tuner.L");
 			break;
 		case R.id.remote_c1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Seven.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Seven.L");
 			break;
 		case R.id.remote_c2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Eight.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Eight.L");
 			break;
 		case R.id.remote_c3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Nine.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Nine.L");
 			break;
 		case R.id.remote_c4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=SelectMode.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=SelectMode.L");
 			break;
 		case R.id.remote_d1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Cancel");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Cancel");
 			break;
 		case R.id.remote_d2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Zero.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Zero.L");
 			break;
 		case R.id.remote_d3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Search.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Search.L");
 			break;
 		case R.id.remote_d4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Sound.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Sound.L");
 			break;
 		case R.id.remote_e1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Prev.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Prev.L");
 			break;
 		case R.id.remote_e2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Next.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Next.L");
 			break;
 		case R.id.remote_e3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Menu.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Menu.L");
 			break;
 		case R.id.remote_e4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=VolUp.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=VolUp.L");
 			break;
 		case R.id.remote_f1:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Info.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Info.L");
 			break;
 		case R.id.remote_f2:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Visual.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Visual.L");
 			break;
 		case R.id.remote_f3:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Play.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Play.L");
 			break;
 		case R.id.remote_f4:
-			new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=VolDown.L");
+			new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=VolDown.L");
 			break;
 		}
 		if (doVibrate) {
@@ -772,10 +776,10 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 		LinearLayout vwParentRow = (LinearLayout)v.getParent();
 		ImageView btnChild = (ImageView)vwParentRow.getChildAt(0);
 		//Log.i("TABLETMAIN","playhandler "+btnChild.getTag());
-		new sendCommand().execute("http://"+playerIP+btnChild.getTag());
+		new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+btnChild.getTag());
 		if (doVibrate) {
 			vibradora.vibrate(50);
-		}      
+		}
 	}
 
 	public void plEditHandler(View v) {
@@ -798,54 +802,54 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 			vibradora.vibrate(50);
 		}
 	}
-	
+
 	@Override
 	public boolean dispatchKeyEvent(KeyEvent e) {
 
 		if (e.getAction() == KeyEvent.ACTION_DOWN) {
 			if (e.getKeyCode() == KeyEvent.KEYCODE_A || e.getKeyCode() == KeyEvent.KEYCODE_B || e.getKeyCode() == KeyEvent.KEYCODE_C || e.getKeyCode() == KeyEvent.KEYCODE_2) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Two");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Two");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_D || e.getKeyCode() == KeyEvent.KEYCODE_E || e.getKeyCode() == KeyEvent.KEYCODE_F || e.getKeyCode() == KeyEvent.KEYCODE_3) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Three");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Three");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_G || e.getKeyCode() == KeyEvent.KEYCODE_H || e.getKeyCode() == KeyEvent.KEYCODE_I || e.getKeyCode() == KeyEvent.KEYCODE_4) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Four");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Four");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_J || e.getKeyCode() == KeyEvent.KEYCODE_K || e.getKeyCode() == KeyEvent.KEYCODE_L || e.getKeyCode() == KeyEvent.KEYCODE_5) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Five");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Five");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_M || e.getKeyCode() == KeyEvent.KEYCODE_N || e.getKeyCode() == KeyEvent.KEYCODE_O || e.getKeyCode() == KeyEvent.KEYCODE_6) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Six");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Six");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_P || e.getKeyCode() == KeyEvent.KEYCODE_R || e.getKeyCode() == KeyEvent.KEYCODE_S || e.getKeyCode() == KeyEvent.KEYCODE_7) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Seven");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Seven");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_T || e.getKeyCode() == KeyEvent.KEYCODE_U || e.getKeyCode() == KeyEvent.KEYCODE_V || e.getKeyCode() == KeyEvent.KEYCODE_8) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Eight");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Eight");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_W || e.getKeyCode() == KeyEvent.KEYCODE_X || e.getKeyCode() == KeyEvent.KEYCODE_Y || e.getKeyCode() == KeyEvent.KEYCODE_9) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Nine");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Nine");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_Q || e.getKeyCode() == KeyEvent.KEYCODE_Z || e.getKeyCode() == KeyEvent.KEYCODE_0) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Zero");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Zero");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
 				KeyboardPanel.setClosed();
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Menu");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Menu");
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_DEL) {
-				new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Cancel");
+				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Cancel");
 				return true;
 			}
 			if (doVibrate) {
@@ -855,45 +859,47 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 		return super.dispatchKeyEvent(e);
 	}
 
-	private void refreshScreen() {
-		screenHandler = new Handler();
-		sr = new Runnable() {
+    private void refreshScreen() {
+        if (screenHandler == null) screenHandler = new Handler(Looper.getMainLooper());
+        if (sr != null) screenHandler.removeCallbacks(sr);
+        sr = new Runnable() {
+            @Override public void run() {
+                if (screenActive && doScreenUpdate && config.getBoolean("showScreen", true)) {
+                    if (imageTask == null) {
+                        imageTask = new DownloadImageTask();
+                        imageTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, imageURL);
+                    }
+                    screenHandler.postDelayed(this, Math.max(100, screenRefreshRate));
+                }
+            }
+        };
+        screenHandler.post(sr);
+    }
 
-			@Override
-			public void run() {
-				if (doScreenUpdate) {
-					//					//Log.i("","trying "+imageURL);
-					new DownloadImageTask().execute(imageURL);
-					screenHandler.postDelayed(sr,screenRefreshRate);
-				}
-			}
-		};
-		screenHandler.post(sr);
-	}
+    private class DownloadImageTask extends AsyncTask<String,String,Bitmap> {
+        private final String requestedIP = playerIP;
+        @Override
+        protected void onCancelled(Bitmap result) { imageTask = null; }
 
-	private class DownloadImageTask extends AsyncTask<String,String,Bitmap> {
 		@Override
 		protected Bitmap doInBackground(String... urls) {
 			Bitmap updatedScreen = null;
 			try {
-				HttpClient httpclient = new DefaultHttpClient();
-				HttpGet httpget = new HttpGet(urls[0]);
-				HttpResponse response = httpclient.execute(httpget);
-				InputStream in = response.getEntity().getContent();
-				BufferedInputStream bis = new BufferedInputStream(in, 8192);
-				updatedScreen = BitmapFactory.decodeStream(bis);
-				httpclient.getConnectionManager().shutdown();
+				byte[] bytes = EmpegHttp.getBytes(urls[0]);
+                updatedScreen = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
 			} catch (MalformedURLException e) {
 				//Log.i("TABLETMAIN","MalformedURLException - DownloadImageTask");
 			} catch (IOException e) {
 				//Log.i("TABLETMAIN","IOException - DownloadImageTask");
-				show404();
+				// Display the failure only from the main-thread completion callback.
 			}
 			return updatedScreen;
 		}
 
 		@Override
 		protected void onPostExecute(Bitmap result) {
+            imageTask = null;
+            if (!screenActive || !doScreenUpdate || !requestedIP.equals(playerIP)) return;
 			Bitmap updatedScreen = null;
 			if (result != null) {
 				updatedScreen = Bitmap.createScaledBitmap(result,mAdjustedWidth,mAdjustedHeight,false);
@@ -909,6 +915,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 	public class DownloadDataTask extends AsyncTask<String, String, ArrayList<String>> {
 
 		ArrayList<String> result = new ArrayList<String>();
+        private final String requestedIP = playerIP;
 
 		@Override
 		protected void onPreExecute() {
@@ -922,22 +929,17 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 			// progressor.setVisibility(View.VISIBLE);
 
 			try {
-				HttpClient httpclient = new DefaultHttpClient();
-				// //Log.i("EMPEG","FETCHING: "+url[0]);
-				HttpGet httpget = new HttpGet(url[0]);
-				ResponseHandler<String> responseHandler = new BasicResponseHandler();
-				result.add(httpclient.execute(httpget, responseHandler));
-
-				httpclient.getConnectionManager().shutdown();
+				result.add(EmpegHttp.getText(url[0]));
 			} catch (MalformedURLException e) {
 				//Log.i("PLAYLISTEXPLORER","DownloadDataTask MalformedURLException: "+e);
 			} catch (IOException e) {
 				//Log.i("PLAYLISTEXPLORER","DownloadDataTask IOException: "+e);
 				// empeg not found
-				show404();
+				// Handle failure on the main thread below.
 			}
 
-			result.add(url[1]); //to add to history or to not add to history...
+			if (result.isEmpty()) { result.add(null); }
+            result.add(url.length > 1 ? url[1] : "add"); //to add to history or to not add to history...
 
 			return result;
 		}
@@ -948,6 +950,10 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 
 		@Override
 		protected void onPostExecute(ArrayList<String> result) {
+            if (isFinishing() || isDestroyed() || !requestedIP.equals(playerIP)) return;
+            if (result.get(0) == null) { show404(); return; }
+            pScroller.setVisibility(View.VISIBLE);
+            pNotFound.setVisibility(View.GONE);
 			//Log.i("EMPEG","onPostExecute result.get(0): "+result.get(0));
 			if (result.get(0) != null) {
 				// parse the result
@@ -1004,7 +1010,11 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 					}
 
 					// build the INSERT link
-					String myInsert = pListLinks.get(2).replace("-","!");
+					if (pListLinks.size() < 5) {
+                        pListLinks.clear();
+                        continue;
+                    }
+                    String myInsert = pListLinks.get(2).replace("-","!");
 
 					// String pName, String pStreamURL, String pPlayURL, String pInsertURL, String pEnqueueURL, String pAppendURL, String pURL, String pLength, String pType, String pArtist, String pSource
 					if (pListLinks.size() > 5) {
@@ -1035,7 +1045,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 				}
 
 				// Sort the list
-				/*				Collections.sort(pList, new Comparator<Playlist>() {               
+				/*				Collections.sort(pList, new Comparator<Playlist>() {
 					@Override
 					public int compare(Playlist p1, Playlist p2) {
 						return p1.getpName().compareTo(p2.getpName());
@@ -1056,8 +1066,8 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 		LinearLayout vwParentRow = (LinearLayout)v.getParent();
 		Button btnChild = (Button)vwParentRow.getChildAt(0);
 		// //Log.i("EMPEG","playlisthandler "+btnChild.getTag());
-		new DownloadDataTask().execute("http://"+playerIP+btnChild.getTag());
-		// vwParentRow.refreshDrawableState();       
+		new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+btnChild.getTag());
+		// vwParentRow.refreshDrawableState();
 	}
 
 	@Override
@@ -1066,7 +1076,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 			Playlist item = (Playlist) getListAdapter().getItem(position);
 			//			 //Log.i("PLAYLISTEXPL","onListItemClick item.getpURL() = "+item.getpURL());
 			if (!item.getpURL().equals("none")) {
-				new DownloadDataTask().execute("http://"+playerIP+item.getpURL(),"add");
+				new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+item.getpURL(),"add");
 				if (doVibrate) {
 					vibradora.vibrate(50);
 				}
@@ -1092,12 +1102,12 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 	@Override
 	public void onPanelClosed(KeyboardPanel panel) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	@Override
 	public void onPanelOpened(KeyboardPanel panel) {
 		// TODO Auto-generated method stub
-		
+
 	}
 }

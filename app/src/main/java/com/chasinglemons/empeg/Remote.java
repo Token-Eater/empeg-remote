@@ -4,11 +4,6 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.ResponseHandler;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicResponseHandler;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.miscwidgets.interpolator.EasingType.Type;
 import org.miscwidgets.interpolator.ExpoInterpolator;
 
@@ -276,76 +271,76 @@ public class Remote extends Fragment implements OnLongClickListener,OnPanelListe
 	public boolean onLongClick(View v) {
 		switch (v.getId()) {
 		case R.id.remote_a1:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=One.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=One.L");
 			break;
 		case R.id.remote_a2:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Two.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Two.L");
 			break;
 		case R.id.remote_a3:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Three.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Three.L");
 			break;
 		case R.id.remote_a4:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Source.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Source.L");
 			break;
 		case R.id.remote_b1:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Four.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Four.L");
 			break;
 		case R.id.remote_b2:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Five.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Five.L");
 			break;
 		case R.id.remote_b3:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Six.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Six.L");
 			break;
 		case R.id.remote_b4:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Tuner.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Tuner.L");
 			break;
 		case R.id.remote_c1:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Seven.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Seven.L");
 			break;
 		case R.id.remote_c2:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Eight.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Eight.L");
 			break;
 		case R.id.remote_c3:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Nine.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Nine.L");
 			break;
 		case R.id.remote_c4:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=SelectMode.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=SelectMode.L");
 			break;
 		case R.id.remote_d1:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Cancel");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Cancel");
 			break;
 		case R.id.remote_d2:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Zero.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Zero.L");
 			break;
 		case R.id.remote_d3:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Search.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Search.L");
 			break;
 		case R.id.remote_d4:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Sound.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Sound.L");
 			break;
 		case R.id.remote_e1:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Prev.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Prev.L");
 			break;
 		case R.id.remote_e2:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Next.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Next.L");
 			break;
 		case R.id.remote_e3:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Menu.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Menu.L");
 			break;
 		case R.id.remote_e4:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=VolUp.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=VolUp.L");
 			break;
 		case R.id.remote_f1:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Info.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Info.L");
 			break;
 		case R.id.remote_f2:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Visual.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Visual.L");
 			break;
 		case R.id.remote_f3:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Play.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Play.L");
 			break;
 		case R.id.remote_f4:
-			new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=VolDown.L");
+			new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=VolDown.L");
 			break;
 		}
 		if (doVibrate) {
@@ -359,13 +354,7 @@ public class Remote extends Fragment implements OnLongClickListener,OnPanelListe
 		protected String doInBackground(String... url) {
 			String responseBody = "";
 			try {
-				HttpClient httpclient = new DefaultHttpClient();
-				//				//Log.i("EMPEG","FETCHING: "+url[0]);
-				HttpGet httpget = new HttpGet(url[0]);
-				ResponseHandler<String> responseHandler = new BasicResponseHandler();
-				responseBody = httpclient.execute(httpget, responseHandler);
-
-				httpclient.getConnectionManager().shutdown();
+				responseBody = EmpegHttp.getText(url[0]);
 			} catch (MalformedURLException e) {
 				//Log.i("EMPEG","MalformedURLException");
 			} catch (IOException e) {
@@ -463,13 +452,13 @@ public class Remote extends Fragment implements OnLongClickListener,OnPanelListe
 				Log.i("WTF","prediction.name = "+prediction.name);
 				// Toast.makeText(activity.getApplicationContext(), prediction.name, Toast.LENGTH_SHORT).show();
 				if (prediction.name.equals("up")) {
-					new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Top");
+					new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Top");
 				} else if (prediction.name.equals("down")) {
-					new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Bottom");
+					new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Bottom");
 				} else if (prediction.name.equals("left")) {
-					new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Left");
+					new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Left");
 				} else if (prediction.name.equals("right")) {
-					new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Right");
+					new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Right");
 				}
 			}
 			/*for (Prediction prediction : predictions) {
@@ -477,13 +466,13 @@ public class Remote extends Fragment implements OnLongClickListener,OnPanelListe
 					Log.i("WTF","prediction.name = "+prediction.name);
 					// Toast.makeText(activity.getApplicationContext(), prediction.name, Toast.LENGTH_SHORT).show();
 					if (prediction.name.equals("up")) {
-						new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Top");
+						new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Top");
 					} else if (prediction.name.equals("down")) {
-						new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Bottom");
+						new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Bottom");
 					} else if (prediction.name.equals("left")) {
-						new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Left");
+						new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Left");
 					} else if (prediction.name.equals("right")) {
-						new sendButton().execute("http://"+playerIP+"/proc/empeg_notify?button=Right");
+						new sendButton().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Right");
 					}
 				}
 			}*/

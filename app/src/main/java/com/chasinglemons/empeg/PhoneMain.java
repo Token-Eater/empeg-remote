@@ -6,16 +6,12 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.util.Locale;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.ResponseHandler;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicResponseHandler;
-import org.apache.http.impl.client.DefaultHttpClient;
 
 import android.app.ActionBar;
+import android.app.AlertDialog;
 import android.app.FragmentTransaction;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
@@ -29,7 +25,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
@@ -41,6 +36,7 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.Display;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -49,14 +45,11 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.NumberPicker;
 
-import com.afollestad.materialdialogs.DialogAction;
-import com.afollestad.materialdialogs.MaterialDialog;
-import com.afollestad.materialdialogs.Theme;
-
-import biz.kasual.materialnumberpicker.MaterialNumberPicker;
-
 public class PhoneMain extends FragmentActivity implements ActionBar.TabListener,
         SharedPreferences.OnSharedPreferenceChangeListener {
+
+    private boolean screenActive;
+    private DownloadImageTask imageTask;
 
     protected static final int ADD_IP_REQUEST_CODE = 100;
     private SectionsPagerAdapter mSectionsPagerAdapter;
@@ -75,7 +68,7 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
     private CustomViewPager cPager;
     private EditText messageInput;
     private View positiveAction;
-    private MaterialNumberPicker picker;
+    private NumberPicker picker;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,13 +95,13 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
             @Override
             public void onItemClick(int pos) {
                 if (pos == 0) { // enqueue selected
-                    new sendCommand().execute("http://" + playerIP + enqueueURL);
+                    new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + enqueueURL);
 
                 } else if (pos == 1) { // append selected
-                    new sendCommand().execute("http://" + playerIP + appendURL);
+                    new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + appendURL);
 
                 } else if (pos == 2) { // insert selected
-                    new sendCommand().execute("http://" + playerIP + insertURL);
+                    new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + insertURL);
 
                 } else if (pos == 3) { // stream selected
                     Intent intent = new Intent();
@@ -134,8 +127,7 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
         } else {
             playerIP = config.getString("activeEmpegIP", "none");
             if (config.getBoolean("doNotifications", true)) {
-                Intent service = new Intent(this, NotificationService.class);
-                this.startService(service);
+                NotificationService.start(PhoneMain.this);
             }
         }
 
@@ -173,8 +165,7 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
                     Intent service = new Intent(getApplicationContext(), NotificationService.class);
                     stopService(service);
                 } else {
-                    Intent service = new Intent(getApplicationContext(), NotificationService.class);
-                    startService(service);
+                    NotificationService.start(PhoneMain.this);
                 }
                 if (key.equals("swipeAction")) {
                     if (config.getString("swipeAction", "0").equals("1")) {
@@ -234,6 +225,7 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
     @Override
     public void onResume() {
         super.onResume();
+        screenActive = true;
         //		Log.i("PHONEMAIN","onResume()");
         playerIP = config.getString("activeEmpegIP", "none");
         //		Log.i("PHONEMAIN","saved IP: "+playerIP);
@@ -249,6 +241,8 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
     @Override
     public void onPause() {
         super.onPause();
+        screenActive = false;
+        if (imageTask != null) imageTask.cancel(true);
         //		Log.i("PHONEMAIN","onPause()");
         if (screenHandler != null) {
             screenHandler.removeCallbacks(sr);
@@ -258,6 +252,7 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
     @Override
     public void onDestroy() {
         super.onDestroy();
+        config.unregisterOnSharedPreferenceChangeListener(prefListener);
         Intent service = new Intent(this, NotificationService.class);
         stopService(service);
     }
@@ -268,6 +263,7 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
         super.onActivityResult(requestCode, resultCode, data);
         switch (requestCode) {
             case ADD_IP_REQUEST_CODE:
+                playerIP = config.getString("activeEmpegIP", "none");
                 if (!config.getString("activeEmpegIP", "none").equals("none")) {
                     if (screenHandler != null) {
                         screenHandler.removeCallbacks(sr);
@@ -281,13 +277,12 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
                     imageURL = "http://" + playerIP + "/proc/empeg_screen.png";
 
                     // send a hello msg to the empeg
-                    new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=NODATA&POPUP%201%20%20Empeg%20Remote%20configured");
+                    new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=NODATA&POPUP%201%20%20Empeg%20Remote%20configured");
 
                     refreshScreen();
 
                     if (config.getBoolean("doNotifications", true)) {
-                        Intent service = new Intent(this, NotificationService.class);
-                        this.startService(service);
+                        NotificationService.start(PhoneMain.this);
                     }
 
                 } else {
@@ -297,7 +292,19 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
         }
     }
 
-    @Override
+        @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == NotificationService.NOTIFICATION_PERMISSION_REQUEST
+                && grantResults.length > 0
+                && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+                && config.getBoolean("doNotifications", true)
+                && !"none".equals(config.getString("activeEmpegIP", "none"))) {
+            NotificationService.start(this);
+        }
+    }
+
+@Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
@@ -318,27 +325,27 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
                 return true;
             case R.id.action_send_message:
                 // popup text entry
-                MaterialDialog dialog = new MaterialDialog.Builder(this)
-                        .theme(Theme.LIGHT)
-                        .title("Send Message")
-                        .customView(R.layout.send_message_popup, true)
-                        .positiveText("Send")
-                        .negativeText("Cancel")
-                        .onPositive(new MaterialDialog.SingleButtonCallback() {
+                AlertDialog.Builder builder = new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog_Alert);
+                View messageView = LayoutInflater.from(builder.getContext()).inflate(R.layout.send_message_popup, null);
+                AlertDialog dialog = builder.setTitle("Send Message")
+                        .setView(messageView)
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Send", new DialogInterface.OnClickListener() {
                             @Override
-                            public void onClick(@NonNull MaterialDialog dialog, @NonNull DialogAction which) {
-                                new sendCommand().execute("http://" + playerIP +
+                            public void onClick(DialogInterface dialog, int which) {
+                                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP +
                                         "/proc/empeg_notify?button=NODATA&POPUP%20" +
                                         picker.getValue() + "%20" +
                                         messageInput.getText().toString().replace(" ", "%20"));
                             }
                         })
-                        .build();
+                        .create();
 
-                picker = (MaterialNumberPicker) dialog.getCustomView().findViewById(R.id.durationPicker);
+                picker = (NumberPicker) messageView.findViewById(R.id.durationPicker);
+                picker.setMinValue(1);
+                picker.setMaxValue(1000);
                 picker.setValue(5);
-                positiveAction = dialog.getActionButton(DialogAction.POSITIVE);
-                messageInput = (EditText) dialog.getCustomView().findViewById(R.id.message_text);
+                messageInput = (EditText) messageView.findViewById(R.id.message_text);
                 messageInput.addTextChangedListener(new TextWatcher() {
                     @Override
                     public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -355,6 +362,7 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
                 });
 
                 dialog.show();
+                positiveAction = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
                 positiveAction.setEnabled(false); // disabled by default
 
                 return true;
@@ -438,13 +446,7 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
         protected String doInBackground(String... url) {
             String responseBody = "";
             try {
-                HttpClient httpclient = new DefaultHttpClient();
-                //				//Log.i("EMPEG","FETCHING: "+url[0]);
-                HttpGet httpget = new HttpGet(url[0]);
-                ResponseHandler<String> responseHandler = new BasicResponseHandler();
-                responseBody = httpclient.execute(httpget, responseHandler);
-
-                httpclient.getConnectionManager().shutdown();
+                responseBody = EmpegHttp.getText(url[0]);
             } catch (MalformedURLException e) {
                 //Log.i("PHONEMAIN","MalformedURLException - sendCommand");
             } catch (IOException e) {
@@ -467,79 +469,79 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
 
         switch (v.getId()) {
             case R.id.remote_a1:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=One");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=One");
                 break;
             case R.id.remote_a2:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Two");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Two");
                 break;
             case R.id.remote_a3:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Three");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Three");
                 break;
             case R.id.remote_a4:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Source");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Source");
                 break;
             case R.id.remote_b1:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Four");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Four");
                 break;
             case R.id.remote_b2:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Five");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Five");
                 break;
             case R.id.remote_b3:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Six");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Six");
                 break;
             case R.id.remote_b4:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Tuner");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Tuner");
                 break;
             case R.id.remote_c1:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Seven");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Seven");
                 break;
             case R.id.remote_c2:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Eight");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Eight");
                 break;
             case R.id.remote_c3:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Nine");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Nine");
                 break;
             case R.id.remote_c4:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=SelectMode");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=SelectMode");
                 break;
             case R.id.remote_d1:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Cancel");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Cancel");
                 break;
             case R.id.remote_d2:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Zero");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Zero");
                 break;
             case R.id.remote_d3:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Search");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Search");
                 break;
             case R.id.remote_d4:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Sound");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Sound");
                 break;
             case R.id.remote_e1:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Prev");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Prev");
                 break;
             case R.id.remote_e2:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Next");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Next");
                 break;
             case R.id.remote_e3:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Menu");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Menu");
                 break;
             case R.id.remote_e4:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=KnobRight");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=KnobRight");
                 break;
             case R.id.remote_f1:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Info");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Info");
                 break;
             case R.id.remote_f2:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Visual");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Visual");
                 break;
             case R.id.remote_f3:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Play");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Play");
                 break;
             case R.id.remote_f4:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=KnobLeft");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=KnobLeft");
                 break;
             case R.id.remote_g1:
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=HijackMenu");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=HijackMenu");
                 break;
         }
         if (doVibrate) {
@@ -557,7 +559,7 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
 		//Log.i("EMPEG","vwParentRow.getChildAt(3) = "+vwParentRow.getChildAt(3));*/
         ImageView btnChild = (ImageView) vwParentRow.getChildAt(0);
         //Log.i("PHONEMAIN","playhandler "+btnChild.getTag());
-        new sendCommand().execute("http://" + playerIP + btnChild.getTag());
+        new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + btnChild.getTag());
         if (doVibrate) {
             vibradora.vibrate(50);
         }
@@ -586,52 +588,54 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
     }
 
     @Override
+    // FragmentActivity inherits this public platform override from SupportActivity.
+    @android.annotation.SuppressLint("RestrictedApi")
     public boolean dispatchKeyEvent(KeyEvent e) {
 
         if (e.getAction() == KeyEvent.ACTION_DOWN) {
             if (e.getKeyCode() == KeyEvent.KEYCODE_A || e.getKeyCode() == KeyEvent.KEYCODE_B || e.getKeyCode() == KeyEvent.KEYCODE_C || e.getKeyCode() == KeyEvent.KEYCODE_2) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Two");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Two");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_D || e.getKeyCode() == KeyEvent.KEYCODE_E || e.getKeyCode() == KeyEvent.KEYCODE_F || e.getKeyCode() == KeyEvent.KEYCODE_3) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Three");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Three");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_G || e.getKeyCode() == KeyEvent.KEYCODE_H || e.getKeyCode() == KeyEvent.KEYCODE_I || e.getKeyCode() == KeyEvent.KEYCODE_4) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Four");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Four");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_J || e.getKeyCode() == KeyEvent.KEYCODE_K || e.getKeyCode() == KeyEvent.KEYCODE_L || e.getKeyCode() == KeyEvent.KEYCODE_5) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Five");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Five");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_M || e.getKeyCode() == KeyEvent.KEYCODE_N || e.getKeyCode() == KeyEvent.KEYCODE_O || e.getKeyCode() == KeyEvent.KEYCODE_6) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Six");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Six");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_P || e.getKeyCode() == KeyEvent.KEYCODE_R || e.getKeyCode() == KeyEvent.KEYCODE_S || e.getKeyCode() == KeyEvent.KEYCODE_7) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Seven");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Seven");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_T || e.getKeyCode() == KeyEvent.KEYCODE_U || e.getKeyCode() == KeyEvent.KEYCODE_V || e.getKeyCode() == KeyEvent.KEYCODE_8) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Eight");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Eight");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_W || e.getKeyCode() == KeyEvent.KEYCODE_X || e.getKeyCode() == KeyEvent.KEYCODE_Y || e.getKeyCode() == KeyEvent.KEYCODE_9) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Nine");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Nine");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_Q || e.getKeyCode() == KeyEvent.KEYCODE_Z || e.getKeyCode() == KeyEvent.KEYCODE_0) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Zero");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Zero");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
                 KeyboardPanel.setClosed();
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Menu");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Menu");
                 return true;
             }
             if (e.getKeyCode() == KeyEvent.KEYCODE_DEL) {
-                new sendCommand().execute("http://" + playerIP + "/proc/empeg_notify?button=Cancel");
+                new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://" + playerIP + "/proc/empeg_notify?button=Cancel");
                 return true;
             }
             if (doVibrate) {
@@ -642,15 +646,16 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
     }
 
     private void refreshScreen() {
-        screenHandler = new Handler();
+        if (screenHandler == null) screenHandler = new Handler(Looper.getMainLooper());
+        if (sr != null) screenHandler.removeCallbacks(sr);
         sr = new Runnable() {
-
-            @Override
-            public void run() {
-                if (doScreenUpdate) {
-                    //					//Log.i("","trying "+imageURL);
-                    new DownloadImageTask().execute(imageURL);
-                    screenHandler.postDelayed(sr, screenRefreshRate);
+            @Override public void run() {
+                if (screenActive && doScreenUpdate && config.getBoolean("showScreen", true)) {
+                    if (imageTask == null) {
+                        imageTask = new DownloadImageTask();
+                        imageTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, imageURL);
+                    }
+                    screenHandler.postDelayed(this, Math.max(100, screenRefreshRate));
                 }
             }
         };
@@ -658,30 +663,31 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
     }
 
     private class DownloadImageTask extends AsyncTask<String, String, Bitmap> {
+        private final String requestedIP = playerIP;
+        @Override
+        protected void onCancelled(Bitmap result) { imageTask = null; }
+
         @Override
         protected Bitmap doInBackground(String... urls) {
             Bitmap updatedScreen = null;
             try {
-                HttpClient httpclient = new DefaultHttpClient();
-                HttpGet httpget = new HttpGet(urls[0]);
-                HttpResponse response = httpclient.execute(httpget);
-                InputStream in = response.getEntity().getContent();
-                BufferedInputStream bis = new BufferedInputStream(in, 8192);
-                updatedScreen = BitmapFactory.decodeStream(bis);
-                //				updatedScreen = BitmapFactory.decodeStream(bis);
-                httpclient.getConnectionManager().shutdown();
+                byte[] bytes = EmpegHttp.getBytes(urls[0]);
+                updatedScreen = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
             } catch (MalformedURLException e) {
                 //Log.i("PHONEMAIN","MalformedURLException - DownloadImageTask");
             } catch (IOException e) {
                 //Log.i("PHONEMAIN","IOException - DownloadImageTask");
-                show404();
+                // Display the failure only from the main-thread completion callback.
             }
             return updatedScreen;
         }
 
         @Override
         protected void onPostExecute(Bitmap result) {
+            imageTask = null;
+            if (!screenActive || !doScreenUpdate || !requestedIP.equals(playerIP)) return;
             //			//Log.d("sender", "Broadcasting message");
+            if (result == null) { show404(); return; }
             Intent intent = new Intent("screen-update");
             // You can also include some extra data.
             intent.putExtra("updatedScreen", result);

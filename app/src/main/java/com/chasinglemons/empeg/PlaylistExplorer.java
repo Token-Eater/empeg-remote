@@ -5,11 +5,6 @@ import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.ResponseHandler;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicResponseHandler;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -96,7 +91,7 @@ public class PlaylistExplorer extends ListFragment {
 
 		if (!config.getString("activeEmpegIP", "none").equals("none")) {
 			playerIP = config.getString("activeEmpegIP", "none");
-			new DownloadDataTask().execute("http://"+playerIP+"/?FID=101&EXT=.htm","add");
+			new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+"/?FID=101&EXT=.htm","add");
 		}
 
 		Button retryComm = (Button) view.findViewById(R.id.button_refresher);
@@ -105,7 +100,7 @@ public class PlaylistExplorer extends ListFragment {
 			public void onClick(View v) {
 				pScroller.setVisibility(View.VISIBLE);
 				pNotFound.setVisibility(View.GONE);
-				new DownloadDataTask().execute("http://"+playerIP+"/?FID=101&EXT=.htm","add");
+				new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+"/?FID=101&EXT=.htm","add");
 				if (doVibrate) {
 					vibradora.vibrate(50);
 				}
@@ -121,7 +116,7 @@ public class PlaylistExplorer extends ListFragment {
 				// //Log.i("PAGER_ACTIVITY","we want to now remove the one on the end: ("+gData.playlistHistory.get(gData.playlistHistory.size()-1)+")");
 				gData.playlistHistory.remove(gData.playlistHistory.size()-1);
 				// //Log.i("PAGER_ACTIVITY","attempting to load: "+"http://"+playerIP+gData.playlistHistory.get(gData.playlistHistory.size()-1));
-				new DownloadDataTask().execute("http://"+playerIP+gData.playlistHistory.get(gData.playlistHistory.size()-1)+"&EXT=.htm","noAdd");
+				new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+gData.playlistHistory.get(gData.playlistHistory.size()-1)+"&EXT=.htm","noAdd");
 				if (doVibrate) {
 					vibradora.vibrate(50);
 				}
@@ -133,7 +128,7 @@ public class PlaylistExplorer extends ListFragment {
 			@Override
 			public void onClick(View v) {
 				gData.playlistHistory.clear();
-				new DownloadDataTask().execute("http://"+playerIP+"/?FID=101&EXT=.htm","add");
+				new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+"/?FID=101&EXT=.htm","add");
 				if (doVibrate) {
 					vibradora.vibrate(50);
 				}
@@ -146,6 +141,7 @@ public class PlaylistExplorer extends ListFragment {
 	public class DownloadDataTask extends AsyncTask<String, String, ArrayList<String>> {
 
 		ArrayList<String> result = new ArrayList<String>();
+        private final String requestedIP = playerIP;
 
 		@Override
 		protected void onPreExecute() {
@@ -159,22 +155,17 @@ public class PlaylistExplorer extends ListFragment {
 			// progressor.setVisibility(View.VISIBLE);
 
 			try {
-				HttpClient httpclient = new DefaultHttpClient();
-				// //Log.i("EMPEG","FETCHING: "+url[0]);
-				HttpGet httpget = new HttpGet(url[0]);
-				ResponseHandler<String> responseHandler = new BasicResponseHandler();
-				result.add(httpclient.execute(httpget, responseHandler));
-
-				httpclient.getConnectionManager().shutdown();
+				result.add(EmpegHttp.getText(url[0]));
 			} catch (MalformedURLException e) {
 				//Log.i("PLAYLISTEXPLORER","DownloadDataTask MalformedURLException: "+e);
 			} catch (IOException e) {
 				//Log.i("PLAYLISTEXPLORER","DownloadDataTask IOException: "+e);
 				// empeg not found
-				show404();
+				// Handle failure on the main thread below.
 			}
 
-			result.add(url[1]); //to add to history or to not add to history...
+			if (result.isEmpty()) { result.add(null); }
+            result.add(url.length > 1 ? url[1] : "add"); //to add to history or to not add to history...
 
 			return result;
 		}
@@ -185,6 +176,10 @@ public class PlaylistExplorer extends ListFragment {
 
 		@Override
 		protected void onPostExecute(ArrayList<String> result) {
+            if (!isAdded() || getView() == null || !requestedIP.equals(playerIP)) return;
+            if (result.get(0) == null) { show404(); return; }
+            pScroller.setVisibility(View.VISIBLE);
+            pNotFound.setVisibility(View.GONE);
 			//Log.i("EMPEG","onPostExecute result.get(0): "+result.get(0));
 			if (result.get(0) != null) {
 				// parse the result
@@ -249,7 +244,11 @@ public class PlaylistExplorer extends ListFragment {
 					}
 
 					// build the INSERT link
-					String myInsert = pListLinks.get(2).replace("-","!");
+					if (pListLinks.size() < 5) {
+                        pListLinks.clear();
+                        continue;
+                    }
+                    String myInsert = pListLinks.get(2).replace("-","!");
 
 					// String pName, String pStreamURL, String pPlayURL, String pInsertURL, String pEnqueueURL, String pAppendURL, String pURL, String pLength, String pType, String pArtist, String pSource
 					if (pListLinks.size() > 5) {
@@ -303,13 +302,7 @@ public class PlaylistExplorer extends ListFragment {
 		protected String doInBackground(String... url) {
 			String responseBody = "";
 			try {
-				HttpClient httpclient = new DefaultHttpClient();
-				// //Log.i("EMPEG","FETCHING: "+url[0]);
-				HttpGet httpget = new HttpGet(url[0]);
-				ResponseHandler<String> responseHandler = new BasicResponseHandler();
-				responseBody = httpclient.execute(httpget, responseHandler);
-
-				httpclient.getConnectionManager().shutdown();
+				responseBody = EmpegHttp.getText(url[0]);
 			} catch (MalformedURLException e) {
 				//Log.i("PLAYLISTEXPLORER","SEND_CMD MalformedURLException: "+e);
 			} catch (IOException e) {
@@ -333,7 +326,7 @@ public class PlaylistExplorer extends ListFragment {
 		LinearLayout vwParentRow = (LinearLayout)v.getParent();
 		Button btnChild = (Button)vwParentRow.getChildAt(0);
 		// //Log.i("EMPEG","playlisthandler "+btnChild.getTag());
-		new DownloadDataTask().execute("http://"+playerIP+btnChild.getTag());
+		new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+btnChild.getTag());
 		// vwParentRow.refreshDrawableState();       
 	}
 
@@ -343,7 +336,7 @@ public class PlaylistExplorer extends ListFragment {
 			Playlist item = (Playlist) getListAdapter().getItem(position);
 			//			 //Log.i("PLAYLISTEXPL","onListItemClick item.getpURL() = "+item.getpURL());
 			if (!item.getpURL().equals("none")) {
-				new DownloadDataTask().execute("http://"+playerIP+item.getpURL(),"add");
+				new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+item.getpURL(),"add");
 				if (doVibrate) {
 					vibradora.vibrate(50);
 				}
@@ -359,7 +352,7 @@ public class PlaylistExplorer extends ListFragment {
 			// Get extra data included in the Intent
 			//			//Log.d("PLAYLISTEXPLORER", "Got newIP");
 			playerIP = intent.getStringExtra("newIP");
-			new DownloadDataTask().execute("http://"+playerIP+"/?FID=101&EXT=.htm","add");
+			new DownloadDataTask().executeOnExecutor(EmpegHttp.PLAYLISTS, "http://"+playerIP+"/?FID=101&EXT=.htm","add");
 		}
 	};
 

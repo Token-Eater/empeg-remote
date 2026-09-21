@@ -15,7 +15,7 @@ import android.widget.TextView;
 public class SeekBarPreference extends Preference implements OnSeekBarChangeListener {
 	
 	private static final String androidns="http://schemas.android.com/apk/res/android";
-	private static final String chasinglemonsseekns="http://com.chasinglemons.empeg";
+	private static final String chasinglemonsseekns="http://schemas.android.com/apk/res-auto";
 	private static final int DEFAULT_VALUE = 50;
 	
 	private int mMaxValue = 100;
@@ -53,6 +53,7 @@ public class SeekBarPreference extends Preference implements OnSeekBarChangeList
 	
 	@Override
 	protected View onCreateView(ViewGroup parent){
+        super.onCreateView(parent);
 		
 		RelativeLayout layout =  null;
 				

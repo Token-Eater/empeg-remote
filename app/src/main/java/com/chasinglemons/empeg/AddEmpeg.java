@@ -58,7 +58,7 @@ public class AddEmpeg extends Activity implements DiscoveryReceiver,OnCancelList
 
 		progresso = (ProgressBar) findViewById(getProgressBar());
 		progresso.setVisibility(View.VISIBLE);
-		new Discoverer((WifiManager) getSystemService(Context.WIFI_SERVICE), this, this).start();
+		new Discoverer((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE), this, this).start();
 
 
 		Button manualAdd = (Button) findViewById(R.id.manual_ip_button);
@@ -157,7 +157,7 @@ public class AddEmpeg extends Activity implements DiscoveryReceiver,OnCancelList
 		switch(item.getItemId()) {
 		case R.id.action_refresh:
 			progresso.setVisibility(View.VISIBLE);
-			new Discoverer((WifiManager) getSystemService(Context.WIFI_SERVICE), this, this).start();
+			new Discoverer((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE), this, this).start();
 			return true;
 		case R.id.action_settings:
 			startActivity(new Intent(this, Settings.class));

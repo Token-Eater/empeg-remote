@@ -41,13 +41,13 @@
                         android:orientation="vertical" >
 
                         <TextView
-                            android:id="@+id/textView1"
+                            android:id="@+id/widget_text_1"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Minimal widget with text info display" />
 
                         <ImageView
-                            android:id="@+id/imageView1"
+                            android:id="@+id/widget_image_1"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:adjustViewBounds="true"
@@ -75,13 +75,13 @@
                         android:orientation="vertical" >
 
                         <TextView
-                            android:id="@+id/textView1"
+                            android:id="@+id/widget_text_2"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="TextView" />
 
                         <ImageView
-                            android:id="@+id/imageView1"
+                            android:id="@+id/widget_image_2"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:adjustViewBounds="true"
@@ -108,13 +108,13 @@
                         android:orientation="vertical" >
 
                         <TextView
-                            android:id="@+id/textView1"
+                            android:id="@+id/widget_text_3"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="TextView" />
 
                         <ImageView
-                            android:id="@+id/imageView1"
+                            android:id="@+id/widget_image_3"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:adjustViewBounds="true"

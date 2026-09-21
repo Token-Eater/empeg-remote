@@ -1,18 +1,10 @@
 package com.chasinglemons.empeg;
 
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.ResponseHandler;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicResponseHandler;
-import org.apache.http.impl.client.DefaultHttpClient;
-
-import android.annotation.SuppressLint;
+import android.Manifest;
+import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -20,275 +12,161 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.AsyncTask;
-import android.os.Binder;
-import android.os.Bundle;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.widget.RemoteViews;
 
-@SuppressLint("NewApi")
+import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+/** Persistent controls for the external player, with polling independent of control requests. */
 public class NotificationService extends Service {
-	private NotificationManager mNM;
-	private final Handler handler = new Handler();
-	SharedPreferences config;
-	String playerIP;
-//	private NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this);
-	//Different Id's will show up as different notifications
-//	private int mNotificationId = 1;
-	private boolean firstTime = true;
-	Intent appIntent,button1Intent,button2Intent,button3Intent,button4Intent;
-	PendingIntent pIntent,pb1,pb2,pb3,pb4;
-	RemoteViews contentView;
-	Notification notificator;
+    public static final int NOTIFICATION_PERMISSION_REQUEST = 1001;
 
-	/**
-	 * Class for clients to access.  Because we know this service always
-	 * runs in the same process as its clients, we don't need to deal with
-	 * IPC.
-	 */
-	public class LocalBinder extends Binder {
-		NotificationService getService() {
-			return NotificationService.this;
-		}
-	}
+    /** Called from a visible activity; permission result is handled by that activity. */
+    public static void start(Activity activity) {
+        if (Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission(
+                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            activity.requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS},
+                    NOTIFICATION_PERMISSION_REQUEST);
+            return;
+        }
+        Intent service = new Intent(activity, NotificationService.class);
+        if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(service);
+        else activity.startService(service);
+    }
 
-	@Override
-	public void onCreate() {
-		appIntent = new Intent(this, Start.class);
-		appIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-		pIntent = PendingIntent.getActivity(this, 0, appIntent, 0);
+    private static final String CHANNEL = "player_controls";
+    private static final int NOTIFICATION_ID = 1;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ScheduledExecutorService polling = Executors.newSingleThreadScheduledExecutor();
+    private SharedPreferences config;
+    private NotificationManager notifications;
+    private RemoteViews controls;
+    private PendingIntent openApp;
+    private volatile boolean destroyed;
+    private boolean pollingStarted;
 
-		button1Intent = new Intent(this, NotifButtonListener.class);
-		button1Intent.putExtra("action", "up");
-		pb1 = PendingIntent.getBroadcast(this, 351, button1Intent, PendingIntent.FLAG_ONE_SHOT);
+    @Override public void onCreate() {
+        super.onCreate();
+        config = PreferenceManager.getDefaultSharedPreferences(this);
+        notifications = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (Build.VERSION.SDK_INT >= 26) {
+            notifications.createNotificationChannel(new NotificationChannel(CHANNEL,
+                    "Player controls", NotificationManager.IMPORTANCE_LOW));
+        }
+        openApp = PendingIntent.getActivity(this, 0,
+                new Intent(this, Start.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                pendingFlags());
+        controls = new RemoteViews(getPackageName(), R.layout.custom_notification);
+        String[] buttons = {"Top", "Left", "Right", "Bottom"};
+        int[] ids = {R.id.imageButton1, R.id.imageButton2, R.id.imageButton3, R.id.imageButton4};
+        for (int i = 0; i < buttons.length; i++) {
+            Intent command = new Intent(this, NotificationService.class).setAction(buttons[i]);
+            PendingIntent click = Build.VERSION.SDK_INT >= 26
+                    ? PendingIntent.getForegroundService(this, i + 1, command, pendingFlags())
+                    : PendingIntent.getService(this, i + 1, command, pendingFlags());
+            controls.setOnClickPendingIntent(ids[i], click);
+        }
+        startForeground(NOTIFICATION_ID, notification("Connecting to player…"));
+    }
 
-		button2Intent = new Intent(this, NotifButtonListener.class);
-		button2Intent.putExtra("action", "left");
-		pb2 = PendingIntent.getBroadcast(this, 352, button2Intent, PendingIntent.FLAG_ONE_SHOT);
+    private static int pendingFlags() {
+        return PendingIntent.FLAG_UPDATE_CURRENT
+                | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+    }
 
-		button3Intent = new Intent(this, NotifButtonListener.class);
-		button3Intent.putExtra("action", "right");
-		pb3 = PendingIntent.getBroadcast(this, 353, button3Intent, PendingIntent.FLAG_ONE_SHOT);
+    @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if (!config.getBoolean("doNotifications", true) || "none".equals(playerIP())) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        String button = intent == null ? null : intent.getAction();
+        if ("Top".equals(button) || "Left".equals(button)
+                || "Right".equals(button) || "Bottom".equals(button)) {
+            final String url = "http://" + playerIP() + "/proc/empeg_notify?button=" + button;
+            EmpegHttp.COMMANDS.execute(() -> {
+                if (destroyed) return;
+                try {
+                    EmpegHttp.getText(url);
+                } catch (IOException e) {
+                    showText("Player unavailable — retrying…");
+                }
+            });
+        }
+        if (!pollingStarted) {
+            pollingStarted = true;
+            // Delay starts after completion, so slow requests never build a backlog.
+            polling.scheduleWithFixedDelay(this::poll, 0, 1, TimeUnit.SECONDS);
+        }
+        return START_NOT_STICKY;
+    }
 
-		button4Intent = new Intent(this, NotifButtonListener.class);
-		button4Intent.putExtra("action", "down");
-		pb4 = PendingIntent.getBroadcast(this, 354, button4Intent, PendingIntent.FLAG_ONE_SHOT);
+    private String playerIP() {
+        return config.getString("activeEmpegIP", "none");
+    }
 
-		contentView = new RemoteViews(getPackageName(), R.layout.custom_notification);
-		contentView.setOnClickPendingIntent(R.id.imageButton1, pb1);
-		contentView.setOnClickPendingIntent(R.id.imageButton2, pb2);
-		contentView.setOnClickPendingIntent(R.id.imageButton3, pb3);
-		contentView.setOnClickPendingIntent(R.id.imageButton4, pb4);
+    private void poll() {
+        if (destroyed) return;
+        final String ip = playerIP();
+        try {
+            String text = PlayerStatus.parse(EmpegHttp.getText("http://" + ip
+                    + "/proc/empeg_notify")).displayText();
+            if (ip.equals(playerIP())) showText(text);
+        } catch (IOException e) {
+            showText("Player unavailable — retrying…");
+        }
+    }
 
-		mNM = (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-		config = PreferenceManager.getDefaultSharedPreferences(this);
-		playerIP = config.getString("activeEmpegIP", "none");
-		// Display a notification about us starting.  We put an icon in the status bar.
-		updateNotification("","","");
-	}
+    private void showText(String text) {
+        if (destroyed) return;
+        handler.post(() -> {
+            if (!destroyed) notifications.notify(NOTIFICATION_ID, notification(text));
+        });
+    }
 
-	@Override
-	public int onStartCommand(Intent intent, int flags, int startId) {
-		handler.removeCallbacks(sendUpdatesToNotif);
-		handler.postDelayed(sendUpdatesToNotif, 1000); // 1 second
-		return START_STICKY;
-	}
+    private Notification notification(String text) {
+        controls.setTextViewText(R.id.notification_title, "Empeg Remote");
+        controls.setTextViewText(R.id.notification_text, text);
+        Notification.Builder builder = Build.VERSION.SDK_INT >= 26
+                ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this);
+        builder.setContentTitle("Empeg Remote").setContentText(text)
+                .setSmallIcon(R.drawable.player_white).setContentIntent(openApp)
+                .setOnlyAlertOnce(true).setOngoing(true).setShowWhen(false);
+        if (Build.VERSION.SDK_INT >= 24) {
+            builder.setCustomBigContentView(controls)
+                    .setStyle(new Notification.DecoratedCustomViewStyle());
+        }
+        Notification notification = builder.build();
+        if (Build.VERSION.SDK_INT < 24) notification.bigContentView = controls;
+        return notification;
+    }
 
-	@Override
-	public void onDestroy() {
-		// Cancel the persistent notification.
-		mNM.cancel(0);
+    @Override public void onDestroy() {
+        destroyed = true;
+        polling.shutdownNow();
+        handler.removeCallbacksAndMessages(null);
+        stopForeground(true);
+        super.onDestroy();
+    }
 
-		handler.removeCallbacks(sendUpdatesToNotif);	
-		super.onDestroy();
+    @Override public IBinder onBind(Intent intent) { return null; }
 
-	}
-
-	@Override
-	public IBinder onBind(Intent intent) {
-		return mBinder;
-	}
-
-	// This is the object that receives interactions from clients.  See
-	// RemoteService for a more complete example.
-	private final IBinder mBinder = new LocalBinder();
-
-	/**
-	 * Show a notification while this service is running.
-	 * @return 
-	 */
-	@SuppressLint("NewApi")
-	private void updateNotification(String eArtist, String eTitle, String eTime) {
-
-		contentView.setTextViewText(R.id.notification_title, "Empeg Remote");
-		contentView.setTextViewText(R.id.notification_text, eArtist+" - "+eTitle+" "+eTime);
-
-		if (firstTime) {
-
-			notificator = new Notification.Builder(this)
-			.setContentTitle("Empeg Remote")
-			.setContentText("")
-			.setSmallIcon(R.drawable.player_white)
-			.setOnlyAlertOnce(true)
-			.setContentIntent(pIntent)
-			.setWhen(0)
-			.build();
-
-/*			mBuilder.setSmallIcon(R.drawable.ic_launcher)
-			.setStyle(new NotificationCompat.InboxStyle())
-			.setOnlyAlertOnce(true)
-			.setContentIntent(pIntent)
-			.setWhen(0)
-			.setContent(contentView);
-			firstTime = false;*/
-		}
-		
-		//notificator.setLatestEventInfo(this, "Empeg Remote", eArtist+" - "+eTitle+" "+eTime, pIntent);
-
-		notificator.bigContentView = contentView;
-
-		mNM.notify(0, notificator);
-
-		//		mBuilder.setContentText(eArtist+" - "+eTitle+" "+eTime);
-
-		//		mNM.notify(mNotificationId, mBuilder.build());
-	}
-
-	/*    private void showNotification() {
-
-    	Intent intent = new Intent(this, Start.class);
-    	PendingIntent pIntent = PendingIntent.getActivity(this, 0, intent, 0);
-
-    	Intent switchIntent = new Intent(this, TestButtonListener.class);
-        PendingIntent pendingSwitchIntent = PendingIntent.getBroadcast(this, 0, switchIntent, 0);
-
-    	// Build notification
-    	noti = new NotificationCompat.Builder(this)
-    	        .setContentTitle("Empeg Remote")
-    	        .setOnlyAlertOnce(true)
-    	        .setContentText("Artist - Song - (time)")
-    	        .setSmallIcon(R.drawable.ic_launcher)
-    	        .setContentIntent(pIntent)
-    	        .addAction(R.drawable.button_a4sm, "Power", pendingSwitchIntent)
-    	        .addAction(R.drawable.button_f3sm, "Play/Pause", pIntent).build();
-
-        // Send the notification.
-        mNM.notify(NOTIFICATION, noti);
-    }*/
-
-	private Runnable sendUpdatesToNotif = new Runnable() {
-		public void run() {
-
-			new DownloadDataTask().execute("http://"+playerIP+"/proc/empeg_notify");
-
-			handler.postDelayed(this, 1000); // 1 second
-		}
-	};
-
-	public class DownloadDataTask extends AsyncTask<String, String, String> {
-		@Override
-		protected String doInBackground(String... url) {
-			String responseBody = "";
-			try {
-				HttpClient httpclient = new DefaultHttpClient();
-//				Log.i("EMPEG","FETCHING: "+url[0]);
-				HttpGet httpget = new HttpGet(url[0]);
-				ResponseHandler<String> responseHandler = new BasicResponseHandler();
-				responseBody = httpclient.execute(httpget, responseHandler);
-
-				httpclient.getConnectionManager().shutdown();
-			} catch (MalformedURLException e) {
-//				Log.i("EMPEG","MalformedURLException");
-			} catch (IOException e) {
-//				Log.i("EMPEG","IOException");
-			}
-			return responseBody;
-		}
-
-		@Override
-		protected void onProgressUpdate(String... progress) {
-		}
-
-		@Override
-		protected void onPostExecute(String result) {
-			//			Log.i("EMPEG","onPostExecute: "+result);
-
-			// parse the result
-			result = result.replaceAll("(\\r|\\n)", "");
-			//			Log.i("","result = "+result);
-			Pattern VERSE_PATTERN = Pattern.compile("notify_FidTime = \"(.*?)\";notify_Artist = \"(.*?)\";notify_FID = \"(.*?)\";notify_Genre = \"(.*?)\";notify_MixerInput = \"(.*?)\";notify_Track = \"(.*?)\";notify_Sound = \"(.*?)\";notify_Title = \"(.*?)\";notify_Volume = \"(.*?)\";");
-			Matcher m = VERSE_PATTERN.matcher(result);
-			while (m.find()) {
-
-				String timeHolder;
-
-				if (m.group(1).split("  ")[1].startsWith("0:")) {
-					if (m.group(1).split("  ")[1].startsWith("0:0")) {
-						timeHolder = m.group(1).split("  ")[1].substring(3);
-					} else {
-						timeHolder = m.group(1).split("  ")[1].substring(2);
-					}
-				} else {
-					timeHolder = m.group(1).split("  ")[1];
-				}
-
-				updateNotification(m.group(2),m.group(8),"("+timeHolder+")");
-			}
-		}
-	}
-
-	public static class NotifButtonListener extends BroadcastReceiver {
-		@Override
-		public void onReceive(Context context, Intent intent) {
-			SharedPreferences config = PreferenceManager.getDefaultSharedPreferences(context);
-			String playerIP = config.getString("activeEmpegIP", "none");
-
-			Bundle extras = intent.getExtras();
-			if (extras != null) {
-
-				if (extras.getString("action").equals("up")) {
-					new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Top");
-				} else if (extras.getString("action").equals("left")) {
-					new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Left");
-				} else if (extras.getString("action").equals("right")) {
-					new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Right");
-				} else if (extras.getString("action").equals("down")) {
-					new sendCommand().execute("http://"+playerIP+"/proc/empeg_notify?button=Bottom");
-				}
-			}
-		}
-
-		public class sendCommand extends AsyncTask<String, String, String> {
-			@Override
-			protected String doInBackground(String... url) {
-				String responseBody = "";
-				try {
-					HttpClient httpclient = new DefaultHttpClient();
-					//				//Log.i("EMPEG","FETCHING: "+url[0]);
-					HttpGet httpget = new HttpGet(url[0]);
-					ResponseHandler<String> responseHandler = new BasicResponseHandler();
-					responseBody = httpclient.execute(httpget, responseHandler);
-
-					httpclient.getConnectionManager().shutdown();
-				} catch (MalformedURLException e) {
-					//Log.i("PHONEMAIN","MalformedURLException - sendCommand");
-				} catch (IOException e) {
-					//Log.i("PHONEMAIN","IOException - sendCommand");
-				}
-				return responseBody;
-			}
-
-			@Override
-			protected void onProgressUpdate(String... progress) {
-			}
-
-			@Override
-			protected void onPostExecute(String result) {
-				//			//Log.i("EMPEG","onPostExecute: "+result);
-			}
-		}
-	}
-
+    /** Retained for pending broadcasts created by earlier app versions. */
+    public static class NotifButtonListener extends BroadcastReceiver {
+        @Override public void onReceive(Context context, Intent intent) {
+            String oldAction = intent.getStringExtra("action");
+            String button = "up".equals(oldAction) ? "Top" : "left".equals(oldAction) ? "Left"
+                    : "right".equals(oldAction) ? "Right" : "down".equals(oldAction) ? "Bottom" : null;
+            if (button == null) return;
+            Intent service = new Intent(context, NotificationService.class).setAction(button);
+            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(service);
+            else context.startService(service);
+        }
+    }
 }

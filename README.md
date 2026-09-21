@@ -1,3 +1,16 @@
+# Empeg Remote — Android tester builds
+
+Modernization of [suomi35/empeg-remote](https://github.com/suomi35/empeg-remote). One APK supports phones and tablets; initial physical tests cover Android 10 and Android 15 tablets. No physical Android phone has been tested.
+
+- [Tester release and installation](TESTER_RELEASE.md)
+- [Device test record and checklist](TESTING.md)
+- [Release validation](RELEASE_VALIDATION.md)
+- [Implementation and build notes](MODERNIZATION.md)
+
+The discovery timeout preference is separate from the HTTP timeouts introduced in this fork. Your player still needs Hijack and network connectivity.
+
+## Original project notes
+
 empeg-remote
 ============
 
