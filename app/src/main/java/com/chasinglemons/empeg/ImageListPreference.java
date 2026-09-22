@@ -16,21 +16,14 @@ public class ImageListPreference extends ListPreference {
 		TypedArray typedArray = context.obtainStyledAttributes(attrs,
 			R.styleable.ImageListPreference);
 
-		String[] imageNames = context.getResources().getStringArray(
-			typedArray.getResourceId(typedArray.getIndexCount()-1, -1));
-
-		resourceIds = new int[imageNames.length];
-
-		for (int i=0;i<imageNames.length;i++) {
-			String imageName = imageNames[i].substring(
-				imageNames[i].indexOf('/') + 1,
-				imageNames[i].lastIndexOf('.'));
-
-			resourceIds[i] = context.getResources().getIdentifier(imageName,
-				null, context.getPackageName());
-		}
-
-		typedArray.recycle();
+        TypedArray images = context.getResources().obtainTypedArray(
+                typedArray.getResourceId(R.styleable.ImageListPreference_lensImages, 0));
+        resourceIds = new int[images.length()];
+        for (int i = 0; i < images.length(); i++) {
+            resourceIds[i] = images.getResourceId(i, 0);
+        }
+        images.recycle();
+        typedArray.recycle();
 	}
 	/**
 	 * {@inheritDoc}
