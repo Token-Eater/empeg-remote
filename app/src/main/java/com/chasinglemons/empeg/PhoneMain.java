@@ -320,6 +320,9 @@ public class PhoneMain extends FragmentActivity implements ActionBar.TabListener
             case R.id.action_discovery:
                 startActivityForResult(new Intent(this, AddEmpeg.class), ADD_IP_REQUEST_CODE);
                 return true;
+            case R.id.action_about:
+                AboutDialog.show(this);
+                return true;
             case R.id.action_settings:
                 startActivity(new Intent(this, Settings.class));
                 return true;

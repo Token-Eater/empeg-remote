@@ -159,7 +159,10 @@ public class AddEmpeg extends Activity implements DiscoveryReceiver,OnCancelList
 			progresso.setVisibility(View.VISIBLE);
 			new Discoverer((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE), this, this).start();
 			return true;
-		case R.id.action_settings:
+		case R.id.action_about:
+                AboutDialog.show(this);
+                return true;
+            case R.id.action_settings:
 			startActivity(new Intent(this, Settings.class));
 			return true;
 		case android.R.id.home:

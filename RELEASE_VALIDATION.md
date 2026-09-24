@@ -1,3 +1,17 @@
+# About dialog: 1.97.0-beta.3
+
+Validated on 2026-09-24. Version code 11; minimum API 21, target API 35.
+
+- Added a shared native About dialog to the phone/tablet main menus and discovery menu. Copy details copies the displayed report without dismissing the dialog.
+- Reports installed version/code, package, manufacturer/model, Android release/API, security patch, OS build, CPU architectures, app display size/density, font scale and locale; includes project credits/source URL.
+- No new permissions or automatic uploads. No device serial, Android ID, accounts or network identifiers collected.
+- assembleRelease, testReleaseUnitTest (4 tests), lintRelease: PASS; existing legacy lint warnings remain.
+- Release-signed APK installed over existing releases on Android 10/API29 tablet emulator, Android 15/API35 emulator configured as a 720x1280 phone, and physical Lenovo TB330XU / Android 15.
+- Dialog visually checked on both emulators and report values checked on the physical tablet. Phone dialog scrolling exercised. Copy details verified by pasting the full report into an unsent message and cancelling. Discovery-menu About opened successfully on Android 10.
+- No physical Android phone tested. Physical tablet left with beta 3 installed and About open.
+
+APK SHA-256: d7402f899146f62f4f9b02df0afd531225ff826157f0112c32c813810a364878
+
 # Lens selector fix: 1.97.0-beta.2
 
 Validated on 2026-09-23. Version code 10; minimum API 21, target API 35.

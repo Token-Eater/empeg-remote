@@ -468,7 +468,10 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 		case R.id.action_discovery:
 			startActivityForResult(new Intent(this,AddEmpeg.class), ADD_IP_REQUEST_CODE);
 			return true;
-		case R.id.action_settings:
+		case R.id.action_about:
+                AboutDialog.show(this);
+                return true;
+            case R.id.action_settings:
 			startActivity(new Intent(this, Settings.class));
 			return true;
 			case R.id.action_send_message:

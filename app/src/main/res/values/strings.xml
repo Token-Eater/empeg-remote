@@ -81,4 +81,8 @@
     <string name="quit_button">Exit</string>
     <!-- END LICENSING -->
 
+    <string name="action_about">About</string>
+    <string name="about_title">About Empeg Remote</string>
+    <string name="copy_details">Copy details</string>
+    <string name="details_copied">Details copied</string>
 </resources>
