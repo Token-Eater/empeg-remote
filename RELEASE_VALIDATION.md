@@ -12,7 +12,7 @@ Validated on 2026-09-24. Version code 11; minimum API 21, target API 35.
 - Dialog visually checked on both emulators and report values checked on the physical tablet. Phone dialog scrolling exercised. Copy details verified by pasting the full report into an unsent message and cancelling. Discovery-menu About opened successfully on Android 10.
 - No physical Android phone tested. Physical tablet left with beta 3 installed and About open.
 
-APK SHA-256: d7402f899146f62f4f9b02df0afd531225ff826157f0112c32c813810a364878
+APK SHA-256: f1cd7756d59238be908d8e7181518bb84cb204e2201fc1148de2599fbe8e06de
 
 # Lens selector fix: 1.97.0-beta.2
 
