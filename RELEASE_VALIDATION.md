@@ -1,5 +1,7 @@
 # About dialog: 1.97.0-beta.3
 
+[Feature preview and emulator screenshots](docs/releases/1.97.0-beta.3.md).
+
 Validated on 2026-09-24. Version code 11; minimum API 21, target API 35.
 
 - Added a shared native About dialog to the phone/tablet main menus and discovery menu. Copy details copies the displayed report without dismissing the dialog.
