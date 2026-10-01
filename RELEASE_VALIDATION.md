@@ -1,3 +1,15 @@
+# Stable release: 1.97.0
+
+Validated on 2026-10-02. Version code 12; minimum API 21, target API 35.
+
+- Promotes beta 3 functionality to stable; only version metadata and documentation changed. Search enhancements remain future work.
+- assembleRelease, testReleaseUnitTest (four tests; unchanged tests up-to-date), lintRelease: PASS. Existing legacy lint warnings remain.
+- Signed using the existing release certificate; apksigner verifies v1/v2/v3 signatures.
+- Installed as an update and launched on Android 10/API29 tablet and Android 15/API35 phone-sized emulators. Both report version 1.97.0 (12).
+- No physical tablet was connected for this final build; prior physical-device testing is recorded below. No physical phone tested.
+
+APK SHA-256: 797f2b96051ab79e9557b753417299dd03e9e10b30cc207be9f965dd2440709f
+
 # About dialog: 1.97.0-beta.3
 
 [Feature preview and emulator screenshots](docs/releases/1.97.0-beta.3.md).

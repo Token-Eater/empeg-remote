@@ -1,8 +1,8 @@
-# Empeg Remote — Android tester builds
+# Empeg Remote - Android
 
 Modernization of [suomi35/empeg-remote](https://github.com/suomi35/empeg-remote). One APK supports phones and tablets; initial physical tests cover Android 10 and Android 15 tablets. No physical Android phone has been tested.
 
-- [Tester release and installation](TESTER_RELEASE.md)
+- [Stable release and installation](docs/releases/1.97.0.md)
 - [Device test record and checklist](TESTING.md)
 - [Release validation](RELEASE_VALIDATION.md)
 - [Implementation and build notes](MODERNIZATION.md)
