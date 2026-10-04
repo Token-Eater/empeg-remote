@@ -3,18 +3,18 @@ apply plugin: 'com.android.application'
 android {
     useLibrary 'org.apache.http.legacy'
     namespace 'com.chasinglemons.empeg'
-    compileSdkVersion 35
+    compileSdk { version = release(37) }
     defaultConfig {
         applicationId "com.chasinglemons.empeg"
         minSdkVersion 21
-        targetSdkVersion 35
-        versionCode 12
-        versionName '1.97.0'
+        targetSdkVersion 37
+        versionCode 13
+        versionName '1.98.0-beta.1'
     }
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.txt'
         }
     }
     compileOptions {

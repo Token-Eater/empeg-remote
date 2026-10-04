@@ -85,4 +85,8 @@
     <string name="about_title">About Empeg Remote</string>
     <string name="copy_details">Copy details</string>
     <string name="details_copied">Details copied</string>
+    <string name="local_network_title">Connect to your empeg</string>
+    <string name="local_network_message">Allow nearby device access so Empeg Remote can discover and control your player on the local network. You can retry or enable this in app permissions.</string>
+    <string name="local_network_settings">App settings</string>
+    <string name="local_network_retry">Retry</string>
 </resources>

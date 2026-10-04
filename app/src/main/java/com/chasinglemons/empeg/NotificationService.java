@@ -30,6 +30,7 @@ public class NotificationService extends Service {
 
     /** Called from a visible activity; permission result is handled by that activity. */
     public static void start(Activity activity) {
+        if (!Start.canConnect(activity)) return;
         if (Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission(
                 Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             activity.requestPermissions(new String[] {Manifest.permission.POST_NOTIFICATIONS},
@@ -82,7 +83,7 @@ public class NotificationService extends Service {
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
-        if (!config.getBoolean("doNotifications", true) || "none".equals(playerIP())) {
+        if (!Start.canConnect(this) || !config.getBoolean("doNotifications", true) || "none".equals(playerIP())) {
             stopSelf();
             return START_NOT_STICKY;
         }

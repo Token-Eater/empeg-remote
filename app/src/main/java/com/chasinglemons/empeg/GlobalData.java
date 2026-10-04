@@ -26,7 +26,15 @@ public class GlobalData extends Application {
                 content.requestApplyInsets();
             }
             public void onActivityCreated(Activity a, Bundle b) {}
-            public void onActivityResumed(Activity a) {}
+            public void onActivityResumed(Activity a) {
+                // Android can restore a remote directly from Recents after permission revocation.
+                if ((a instanceof PhoneMain || a instanceof TabletMain || a instanceof AddEmpeg)
+                        && !Start.canConnect(a)) {
+                    a.startActivity(new android.content.Intent(a, Start.class)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                    | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                }
+            }
             public void onActivityPaused(Activity a) {}
             public void onActivityStopped(Activity a) {}
             public void onActivitySaveInstanceState(Activity a, Bundle b) {}
