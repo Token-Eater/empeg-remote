@@ -40,3 +40,16 @@ SHA-256: `8478c34d26b5c5991061670f8416a3ad4e4db26eff3bab744c19d54cb74cbef7`
 
 - [API 37 tool requirements](https://developer.android.com/build/releases/about-agp)
 - [Android 17 behaviour changes, including local-network permission](https://developer.android.com/about/versions/17/behavior-changes-17)
+
+## Follow-up investigation - 5 October 2026
+
+A [first-hand emulator test report](https://github.com/hajisensai/Fushi/blob/main/docs/agent/integration-testing.md) documents the same graphics assertion and a three-button navigation workaround. Applied to the API 37.2 AVD:
+
+- Enabled `com.android.internal.systemui.navbar.threebutton` and disabled `com.android.internal.systemui.navbar.gestural` with `adb shell cmd overlay`.
+- SurfaceFlinger stopped restarting during the observed two-minute test. APK installation and launch succeeded.
+- Observed the Nearby devices permission prompt. Denial displayed the app's explanation, Retry and App settings; Retry reopened the permission prompt.
+- After tapping Allow, Android's `system_server` aborted in `TaskSnapshotPer`, through `TaskSnapshotConvertUtil` and `GoldfishMapper::readFromHost` in `/vendor/lib64/hw/mapper.ranchu.so`, with the same assertion. Permission acceptance and subsequent app operation therefore remain unverified.
+- This is a partial workaround for the emulator graphics readback problem, not a complete fix. No app code changed. It does not establish whether all host platforms or API 37 images are affected.
+- Google's public emulator troubleshooting and release notes did not identify a confirmed fix for this exact assertion in the material checked. The listed API 37 Play Protect issue is a different failure.
+
+Local crash evidence: `C:/Data/empeg/baseline/api37-threebutton-crash.txt`.
