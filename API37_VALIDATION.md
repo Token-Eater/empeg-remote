@@ -1,6 +1,6 @@
 # API 37 compatibility build - 1.98.0-beta.1
 
-Based on stable 1.97.0, on branch `android-api37`. Not published as a release.
+Based on stable 1.97.0, on branch `android-api37`. Prepared for prerelease `v1.98.0-beta.1`; Android 17 physical-device testers are requested.
 
 ## Changes
 
@@ -28,7 +28,7 @@ Upgraded the emulator runtime from 37.1.11 to 37.2.12. Tried software and host r
 
 The API 37.2 image also failed APK installation while framework services restarted (StorageManagerService reported a null PackageManagerInternal). These failures occurred before the app could run. Tested on 4 October 2026 with emulator 37.2.12 on Windows.
 
-Android 17 permission acceptance/denial/retry, revoked-permission recovery, large-screen rotation and notification control checks remain pending until a stable Android 17 runtime is available.
+Android 17 permission acceptance, revoked-permission recovery, large-screen rotation and notification control checks remain pending. Permission prompt, denial and retry were subsequently checked using the partial workaround below.
 
 ## Artifact
 
