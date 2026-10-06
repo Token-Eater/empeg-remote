@@ -2,8 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/custom_notification"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:minHeight="100dp"
+    android:layout_height="wrap_content"
     android:orientation="vertical" >
 
     <LinearLayout
@@ -30,19 +29,19 @@
 
             <TextView
                 android:id="@+id/notification_title"
-                style="@style/NotificationText"
+                android:textAppearance="@android:style/TextAppearance.Material.Notification.Title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="title"
-                android:textSize="20sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/notification_text"
-                style="@style/NotificationText"
+                android:textAppearance="@android:style/TextAppearance.Material.Notification"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="text"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
         </LinearLayout>
     </LinearLayout>
@@ -51,37 +50,37 @@
         android:layout_width="fill_parent"
         android:layout_height="wrap_content" >
 
-        <ImageButton
+        <Button
             android:id="@+id/imageButton1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minHeight="40dp"
-            android:src="@drawable/icon_up" />
+            android:minHeight="40dp" android:textSize="12sp" android:singleLine="true" android:minWidth="0dp"
+            android:text="Up" android:textColor="#202020" android:contentDescription="Player top button" />
 
-        <ImageButton
+        <Button
             android:id="@+id/imageButton2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minHeight="40dp"
-            android:src="@drawable/icon_left" />
+            android:minHeight="40dp" android:textSize="12sp" android:singleLine="true" android:minWidth="0dp"
+            android:text="Left" android:textColor="#202020" android:contentDescription="Player left button" />
 
-        <ImageButton
+        <Button
             android:id="@+id/imageButton3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minHeight="40dp"
-            android:src="@drawable/icon_right" />
+            android:minHeight="40dp" android:textSize="12sp" android:singleLine="true" android:minWidth="0dp"
+            android:text="Right" android:textColor="#202020" android:contentDescription="Player right button" />
 
-        <ImageButton
+        <Button
             android:id="@+id/imageButton4"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:minHeight="40dp"
-            android:src="@drawable/icon_down" />
+            android:minHeight="40dp" android:textSize="12sp" android:singleLine="true" android:minWidth="0dp"
+            android:text="Down" android:textColor="#202020" android:contentDescription="Player bottom button" />
     </LinearLayout>
 
 </LinearLayout>

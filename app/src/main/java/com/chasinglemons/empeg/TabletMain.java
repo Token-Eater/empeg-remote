@@ -186,7 +186,6 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 
 		kpanel = (KeyboardPanel) findViewById(R.id.kbdPanel);
 		kpanel.setOnPanelListener(this);
-		kpanel.setInterpolator(new ExpoInterpolator(Type.OUT));
 		if (config.getBoolean("showKeyboard", true) == false) {
 			kpanel.setVisibility(View.GONE);
 		}
@@ -808,6 +807,11 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 
 	@Override
 	public boolean dispatchKeyEvent(KeyEvent e) {
+        KeyboardPanel keyboard = findViewById(R.id.kbdPanel);
+        if (e.getKeyCode() == KeyEvent.KEYCODE_BACK && keyboard != null && keyboard.isOpen()) {
+            if (e.getAction() == KeyEvent.ACTION_UP) keyboard.setOpen(false);
+            return true;
+        }
 
 		if (e.getAction() == KeyEvent.ACTION_DOWN) {
 			if (e.getKeyCode() == KeyEvent.KEYCODE_A || e.getKeyCode() == KeyEvent.KEYCODE_B || e.getKeyCode() == KeyEvent.KEYCODE_C || e.getKeyCode() == KeyEvent.KEYCODE_2) {
@@ -847,7 +851,8 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 				return true;
 			}
 			if (e.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
-				KeyboardPanel.setClosed();
+				KeyboardPanel panel = findViewById(R.id.kbdPanel);
+                if (panel != null) panel.setOpen(false);
 				new sendCommand().executeOnExecutor(EmpegHttp.COMMANDS, "http://"+playerIP+"/proc/empeg_notify?button=Menu");
 				return true;
 			}

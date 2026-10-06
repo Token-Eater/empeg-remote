@@ -89,4 +89,6 @@
     <string name="local_network_message">Allow nearby device access so Empeg Remote can discover and control your player on the local network. You can retry or enable this in app permissions.</string>
     <string name="local_network_settings">App settings</string>
     <string name="local_network_retry">Retry</string>
+    <string name="search_keyboard">Keyboard</string>
+    <string name="close_keyboard">Close keyboard</string>
 </resources>

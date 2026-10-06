@@ -48,7 +48,6 @@ public class NotificationService extends Service {
     private final ScheduledExecutorService polling = Executors.newSingleThreadScheduledExecutor();
     private SharedPreferences config;
     private NotificationManager notifications;
-    private RemoteViews controls;
     private PendingIntent openApp;
     private volatile boolean destroyed;
     private boolean pollingStarted;
@@ -64,16 +63,6 @@ public class NotificationService extends Service {
         openApp = PendingIntent.getActivity(this, 0,
                 new Intent(this, Start.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP),
                 pendingFlags());
-        controls = new RemoteViews(getPackageName(), R.layout.custom_notification);
-        String[] buttons = {"Top", "Left", "Right", "Bottom"};
-        int[] ids = {R.id.imageButton1, R.id.imageButton2, R.id.imageButton3, R.id.imageButton4};
-        for (int i = 0; i < buttons.length; i++) {
-            Intent command = new Intent(this, NotificationService.class).setAction(buttons[i]);
-            PendingIntent click = Build.VERSION.SDK_INT >= 26
-                    ? PendingIntent.getForegroundService(this, i + 1, command, pendingFlags())
-                    : PendingIntent.getService(this, i + 1, command, pendingFlags());
-            controls.setOnClickPendingIntent(ids[i], click);
-        }
         startForeground(NOTIFICATION_ID, notification("Connecting to player…"));
     }
 
@@ -132,6 +121,18 @@ public class NotificationService extends Service {
     }
 
     private Notification notification(String text) {
+        // RemoteViews records every setter call; rebuild to keep polling updates bounded.
+        RemoteViews controls = new RemoteViews(getPackageName(), R.layout.custom_notification);
+        String[] buttons = {"Top", "Left", "Right", "Bottom"};
+        int[] ids = {R.id.imageButton1, R.id.imageButton2, R.id.imageButton3, R.id.imageButton4};
+        for (int i = 0; i < buttons.length; i++) {
+            Intent command = new Intent(this, NotificationService.class).setAction(buttons[i]);
+            PendingIntent click = Build.VERSION.SDK_INT >= 26
+                    ? PendingIntent.getForegroundService(this, i + 1, command, pendingFlags())
+                    : PendingIntent.getService(this, i + 1, command, pendingFlags());
+            controls.setOnClickPendingIntent(ids[i], click);
+        }
+
         controls.setTextViewText(R.id.notification_title, "Empeg Remote");
         controls.setTextViewText(R.id.notification_text, text);
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26

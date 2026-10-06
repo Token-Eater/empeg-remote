@@ -48,7 +48,15 @@ public class PlaylistAdapter extends ArrayAdapter<Object> {
 			plView.plPlay = (ImageView) rowView.findViewById(R.id.play_button);
 			plView.plMore = (ImageView) rowView.findViewById(R.id.more_button);
 
-			// Cache the view objects in the tag,
+			// Reapply the user's font after a window resize (including split screen).
+            final TextView name = plView.plName;
+            rowView.addOnLayoutChangeListener((v, l, t, right, b, ol, ot, oright, ob) -> {
+                if (right - l != oright - ol || b - t != ob - ot) {
+                    name.setTypeface(config.getBoolean("pixelFont", false)
+                            ? (Boolean.TRUE.equals(name.getTag()) ? pixelfontBold : pixelfont) : null);
+                }
+            });
+            // Cache the view objects in the tag,
 			// so they can be re-accessed later
 			rowView.setTag(plView);
 		} else {
@@ -58,6 +66,7 @@ public class PlaylistAdapter extends ArrayAdapter<Object> {
 		// Transfer the stock data from the data object
 		// to the view objects
 		Playlist currentpl = playlistitems.get(position);
+		plView.plName.setTag(currentpl.getpName().startsWith("000000"));
 		if (currentpl.getpName().startsWith("000000")) {
 			plView.plLLayout.setBackgroundColor(0x22FFFFFF);
 			plView.plName.setTextColor(Color.RED);

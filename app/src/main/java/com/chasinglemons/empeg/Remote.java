@@ -140,7 +140,6 @@ public class Remote extends Fragment implements OnLongClickListener,OnPanelListe
 
 		kpanel = (KeyboardPanel) view.findViewById(R.id.kbdPanel);
 		kpanel.setOnPanelListener(this);
-		kpanel.setInterpolator(new ExpoInterpolator(Type.OUT));
 		if (config.getBoolean("showKeyboard", true) == false) {
 			kpanel.setVisibility(View.GONE);
 		}
