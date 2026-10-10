@@ -3,11 +3,9 @@ package com.chasinglemons.empeg;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.DisplayMetrics;
 
 public class Start extends Activity {
 
-	double tabletMinimum = 6;
     private static final int LOCAL_NETWORK_REQUEST = 1002;
     private boolean opened;
 
@@ -81,20 +79,8 @@ public class Start extends Activity {
 		}
 	}
 
-	public boolean isTablet() { 
-		try { 
-			// Compute screen size 
-			DisplayMetrics dm = this.getResources().getDisplayMetrics(); 
-			float screenWidth  = dm.widthPixels / dm.xdpi; 
-			float screenHeight = dm.heightPixels / dm.ydpi; 
-			double size = Math.sqrt(Math.pow(screenWidth, 2) + 
-					Math.pow(screenHeight, 2));
-
-			// Tablet devices should have a screen size greater than 6 inches 
-			return size >= tabletMinimum; 
-		} catch(Throwable t) { 
-//			Log.e("START", "Failed to compute screen size", t);
-			return false; 
-		}
-	}
+    public boolean isTablet() {
+        // Physical diagonals misclassify modern large phones. Use Android's tablet breakpoint.
+        return getResources().getConfiguration().smallestScreenWidthDp >= 600;
+    }
 }

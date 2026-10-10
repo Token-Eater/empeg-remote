@@ -18,6 +18,7 @@
         android:layout_height="match_parent"
         android:layout_alignParentLeft="true"
         android:layout_alignRight="@id/tabletDivider"
+        android:layout_above="@id/kbdPanel"
         android:background="@drawable/remote_back"
         android:orientation="vertical" >
 

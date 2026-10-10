@@ -8,8 +8,8 @@ android {
         applicationId "com.chasinglemons.empeg"
         minSdkVersion 21
         targetSdkVersion 37
-        versionCode 14
-        versionName '1.98.0-beta.2'
+        versionCode 15
+        versionName '1.98.0-beta.3'
     }
     buildTypes {
         release {

@@ -22,14 +22,14 @@
             android:padding="4dp" />
     </FrameLayout>
 
-    <ScrollView
+    <FrameLayout
         android:id="@+id/scrollView1"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@+id/vfdFrame"
+        android:layout_above="@id/kbdPanel"
         android:layout_gravity="bottom"
-        android:layout_weight="2"
-        android:fillViewport="true" >
+        android:layout_weight="2" >
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -341,7 +341,7 @@
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
-    </ScrollView>
+    </FrameLayout>
 
     <com.chasinglemons.empeg.KeyboardPanel
         android:id="@+id/kbdPanel"
