@@ -63,8 +63,8 @@
         <CheckBoxPreference
             android:defaultValue="0"
             android:key="showHijack"
-            android:summary="A button for Hijack is present on the remote"
-            android:title="Show Hijack button" >
+            android:summary="Show Hijack and knob controls on the remote"
+            android:title="Show Hijack and knob buttons" >
         </CheckBoxPreference>
         <CheckBoxPreference
             android:defaultValue="1"

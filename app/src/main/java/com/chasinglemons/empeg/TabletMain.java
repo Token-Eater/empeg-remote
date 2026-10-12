@@ -92,6 +92,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 	private ImageView empegScreen, empegLens;
 	private FrameLayout vfd;
 	private LinearLayout rowG;
+    private KnobControls knobControls;
 	private int mWidth,mAdjustedWidth,mAdjustedHeight;
 	private int activeLens = 0;
 	private float[] redMatrix = {
@@ -178,6 +179,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 		pHistoryLayout = (LinearLayout) findViewById(R.id.List_Back);
 
 		config = PreferenceManager.getDefaultSharedPreferences(this);
+        knobControls = new KnobControls(findViewById(android.R.id.content), config);
 
 		mKeyboard = new Keyboard(this, R.xml.keyboard);
 		mKeyboardView = (CustomKeyboardView) findViewById(R.id.keyboard_view);
@@ -391,6 +393,7 @@ public class TabletMain extends ListActivity implements SharedPreferences.OnShar
 
 	@Override
 	public void onPause() {
+        if (knobControls != null) knobControls.release();
 		super.onPause();
         screenActive = false;
         if (imageTask != null) imageTask.cancel(true);

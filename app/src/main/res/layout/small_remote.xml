@@ -318,26 +318,50 @@
                         android:onClick="buttonPress"
                         android:src="@drawable/button_g1sm" />
 
-                    <ImageView
+                    <Button
                         android:id="@+id/remote_g2"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:contentDescription="button" />
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="2dp"
+                        android:textSize="10sp"
+                        android:textAllCaps="false"
+                        android:textColor="#202020"
+                        android:background="@android:drawable/btn_default"
+                        android:text="@string/knob_left"
+                        android:contentDescription="@string/knob_left" />
 
-                    <ImageView
+                    <Button
                         android:id="@+id/remote_g3"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:contentDescription="button" />
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="2dp"
+                        android:textSize="10sp"
+                        android:textAllCaps="false"
+                        android:textColor="#202020"
+                        android:background="@android:drawable/btn_default"
+                        android:text="@string/knob_press"
+                        android:contentDescription="@string/knob_press" />
 
-                    <ImageView
+                    <Button
                         android:id="@+id/remote_g4"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="match_parent"
                         android:layout_weight="1"
-                        android:contentDescription="button" />
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="2dp"
+                        android:textSize="10sp"
+                        android:textAllCaps="false"
+                        android:textColor="#202020"
+                        android:background="@android:drawable/btn_default"
+                        android:text="@string/knob_right"
+                        android:contentDescription="@string/knob_right" />
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>

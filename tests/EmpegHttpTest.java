@@ -56,17 +56,21 @@ public final class EmpegHttpTest {
             if (!commandStarted.await(1, TimeUnit.SECONDS)) throw new AssertionError("queue gate not reached");
             FutureTask<String> stale = new FutureTask<>(() -> EmpegHttp.getText(base + "/command-a"));
             EmpegHttp.COMMANDS.execute(stale);
+            FutureTask<String> knobRelease = new FutureTask<>(() -> EmpegHttp.getText(base + "/command-b"));
+            EmpegHttp.executeRelease(knobRelease);
             Thread.sleep(3200);
             releaseCommand.countDown();
             gate.get(1, TimeUnit.SECONDS);
             try { stale.get(1, TimeUnit.SECONDS); throw new AssertionError("stale command replayed"); } catch (ExecutionException expected) { if (!(expected.getCause() instanceof IOException)) throw expected; }
+            if (!"b".equals(knobRelease.get(1, TimeUnit.SECONDS)) || !commands.equals(java.util.Arrays.asList("b"))) throw new AssertionError("button release expired or stale command replayed");
+            commands.clear();
             FutureTask<String> first = new FutureTask<>(() -> EmpegHttp.getText(base + "/command-a"));
             FutureTask<String> second = new FutureTask<>(() -> EmpegHttp.getText(base + "/command-b"));
             EmpegHttp.COMMANDS.execute(first); EmpegHttp.COMMANDS.execute(second);
             if (!"a".equals(first.get(1, TimeUnit.SECONDS)) || !"b".equals(second.get(1, TimeUnit.SECONDS))) throw new AssertionError("command result");
             if (!commands.equals(java.util.Arrays.asList("a", "b"))) throw new AssertionError("command order");
             if (!"player ready".equals(EmpegHttp.getText(base + "/ok"))) throw new AssertionError("recovery");
-            System.out.println("PASS: response, HTTP error, stalled-header timeout, expiry, command ordering, recovery");
+            System.out.println("PASS: response, HTTP error, stalled-header timeout, expiry, non-expiring button release, command ordering, recovery");
         } finally {
             server.stop(0); workers.shutdownNow();
             ((ExecutorService) EmpegHttp.COMMANDS).shutdownNow();

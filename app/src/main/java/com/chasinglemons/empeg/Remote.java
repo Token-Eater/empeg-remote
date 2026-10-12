@@ -64,6 +64,7 @@ public class Remote extends Fragment implements OnLongClickListener,OnPanelListe
 	ImageView empegScreen,empegLens;
 	FrameLayout vfd;
 	LinearLayout rowG;
+    private KnobControls knobControls;
 	int mWidth,mAdjustedWidth,mAdjustedHeight;
 	int activeLens = 0;
 	private OnSharedPreferenceChangeListener prefListener;
@@ -124,6 +125,7 @@ public class Remote extends Fragment implements OnLongClickListener,OnPanelListe
 
 		vfd = (FrameLayout) view.findViewById(R.id.vfdFrame);
 		rowG = (LinearLayout) view.findViewById(R.id.row_g);
+        knobControls = new KnobControls(view, config);
 
 		// Register to receive messages.
 		// We are registering an observer (mMessageReceiver) to receive Intents
@@ -265,6 +267,11 @@ public class Remote extends Fragment implements OnLongClickListener,OnPanelListe
 	  LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
 	  super.onDestroy();
 	}*/
+
+    @Override public void onPause() {
+        if (knobControls != null) knobControls.release();
+        super.onPause();
+    }
 
 	@Override
 	public boolean onLongClick(View v) {

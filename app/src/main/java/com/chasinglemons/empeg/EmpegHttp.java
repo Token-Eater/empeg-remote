@@ -21,9 +21,15 @@ public final class EmpegHttp {
 
     private EmpegHttp() {}
 
+    // A matching button release must stay ordered but must not expire behind a slow press.
+    static void executeRelease(Runnable release) {
+        ((ExpiringExecutor) COMMANDS).executeRelease(release);
+    }
+
     private static final class ExpiringExecutor extends ThreadPoolExecutor {
         ExpiringExecutor() { super(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>()); }
         @Override public void execute(Runnable command) { super.execute(new ExpiringRunnable(command)); }
+        void executeRelease(Runnable release) { super.execute(release); }
     }
 
     private static final class ExpiringRunnable implements Runnable {

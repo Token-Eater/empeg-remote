@@ -91,4 +91,7 @@
     <string name="local_network_retry">Retry</string>
     <string name="search_keyboard">Keyboard</string>
     <string name="close_keyboard">Close keyboard</string>
+    <string name="knob_left">KnobLeft</string>
+    <string name="knob_press">KnobPress</string>
+    <string name="knob_right">KnobRight</string>
 </resources>
